@@ -1,0 +1,11 @@
+{
+  "appeal_id": "423993c33e3b012d",
+  "address": "0x7f367cc41522ce07553e823bf3be79a889debe1b",
+  "reason_commitment": "196276d57afad0f6167063d3972eb00b9453a83ab2a455511f2a933ccb1c5e8c",
+  "evidence_count": 1,
+  "evidence_hashes": [
+    "5694dda3dfc4b1f78732"
+  ],
+  "timestamp": 1784335360522,
+  "status": "PENDING"
+}

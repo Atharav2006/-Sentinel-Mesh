@@ -1,0 +1,13 @@
+{
+  "name": "sentinel-zkp",
+  "version": "1.0.0",
+  "description": "ZK proof generation for Sentinel Mesh",
+  "scripts": {
+    "setup": "node setup.js",
+    "prove": "node prover.js",
+    "verify": "node verifier.js"
+  },
+  "dependencies": {
+    "snarkjs": "^0.7.3"
+  }
+}
