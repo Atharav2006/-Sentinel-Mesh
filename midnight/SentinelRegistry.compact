@@ -1,0 +1,43 @@
+// Sentinel Mesh Registry - Midnight Native Smart Contract (Compact)
+// This contract compiles to a ZK circuit and a DApp interface.
+
+import { Contract, Ledger, LedgerMap, Bytes, Field, ZK, Circuit, hash } from '@midnight-ntwk/compact';
+
+export contract SentinelRegistry {
+    // Public state: mapping of addresses to total flag count
+    // This lives on the Midnight public ledger
+    ledger flags: LedgerMap<Bytes<32>, Field>;
+
+    // Constructor to initialize the contract
+    export circuit init(): void {
+        // Initialization logic for the registry
+    }
+
+    // Confidential Circuit: Proves a risk score exceeds the threshold without revealing the score
+    // The @zk decorator ensures `score` and `salt` are kept perfectly private in the local client.
+    export circuit submit_flag(
+        address: Bytes<32>,
+        @zk score: Field,
+        @zk salt: Field,
+        threshold: Field
+    ): void {
+        // 1. Assert threshold is 60 (or passed dynamically from consensus rules)
+        assert(threshold == 60, "Threshold must be exactly 60");
+
+        // 2. Zero-Knowledge constraint: Prove score > threshold
+        // The score and salt are private inputs. The network verifies this logic
+        // without ever seeing the inputs.
+        assert(score > threshold, "Risk score does not meet the minimum threshold for flagging.");
+
+        // 3. Compute commitment to bind the proof cryptographically
+        let commitment = hash(score, salt);
+
+        // 4. Update the public ledger (increment flag count)
+        // Since we proved the score is high enough, we can publicly flag the address
+        let current_flags = this.flags.get(address) || 0;
+        this.flags.set(address, current_flags + 1);
+        
+        // 5. Emit a public event containing the commitment (so others can verify)
+        emit FlagSubmitted(address, commitment);
+    }
+}
