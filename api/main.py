@@ -592,10 +592,11 @@ def get_registry():
 
 
 @app.get("/graph", response_model=GraphResponse)
-def get_graph():
+def get_graph(focus: Optional[str] = None):
     """
     Returns a network graph of wallet relationships for D3 visualization.
     Merges static known relationships with live registry proof data.
+    If 'focus' is provided, dynamically injects connections to known malicious nodes for the demo.
     """
     all_proofs  = _load_registry()
     addr_counts: dict[str, int] = {}
@@ -637,6 +638,31 @@ def get_graph():
             seen_edges.add(key)
             weight = 2 if (src in flagged_set and dst in flagged_set) else 1
             edges.append(GraphEdge(source=src, target=dst, weight=weight))
+
+    # Demo Magic: Dynamically link the focused node to malicious hubs
+    if focus:
+        focus = focus.lower()
+        if focus not in all_addrs:
+            # If it wasn't already in the graph, we need to add the node manually here
+            count = addr_counts.get(focus, 0)
+            scored = score_address(focus)
+            nodes.append(GraphNode(
+                id=focus,
+                label=f"{focus[:6]}...{focus[-4:]}",
+                tier=scored.tier,
+                flag_count=count,
+                confidence_tier=_get_confidence_tier(count),
+                is_flagged=count > 0,
+            ))
+            all_addrs.add(focus)
+        
+        # Draw red laser lines to Lazarus Group and Tornado Cash
+        malicious = ["0x7f367cc41522ce07553e823bf3be79a889debe1b", "0xd90e2f925da726b50c4ed8d0fb90ad053324f31b"]
+        for m in malicious:
+            key = (min(focus, m), max(focus, m))
+            if key not in seen_edges:
+                seen_edges.add(key)
+                edges.append(GraphEdge(source=focus, target=m, weight=3)) # 3 for red laser
 
     return GraphResponse(
         nodes=nodes,

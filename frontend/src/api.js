@@ -30,9 +30,10 @@ export async function getHealth() {
   return res.json();
 }
 
-export async function getGraph() {
-  const res = await fetch(`${API}/graph`);
-  if (!res.ok) throw new Error(await res.text());
+export async function getGraph(focus = null) {
+  const url = focus ? `${API}/graph?focus=${focus}` : `${API}/graph`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Failed to fetch graph");
   return res.json();
 }
 

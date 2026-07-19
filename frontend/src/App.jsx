@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { scoreAddress, flagAddress, queryAddress, getRegistry, getHealth, getGraph } from './api';
 import ForceGraph from './ForceGraph';
 import SimulationPanel from './SimulationPanel';
@@ -102,12 +102,14 @@ export default function App() {
   const [selectedNode, setSelectedNode] = useState(null);
   const [wallet, setWallet] = useState(null);
 
+  const graphFocusRef = useRef(null);
+
   const fetchRegistry = useCallback(async () => {
     try { setRegistry(await getRegistry()); } catch {}
   }, []);
 
   const fetchGraph = useCallback(async () => {
-    try { setGraphData(await getGraph()); } catch {}
+    try { setGraphData(await getGraph(graphFocusRef.current)); } catch {}
   }, []);
 
   useEffect(() => {
@@ -139,8 +141,10 @@ export default function App() {
       if (score.exceeds_threshold) {
         const flag = await flagAddress(target);
         setFlagData(flag);
-        await Promise.all([fetchRegistry(), fetchGraph()]);
+        await fetchRegistry();
       }
+      graphFocusRef.current = target;
+      await fetchGraph();
     } catch (e) {
       setError(e.message || 'Failed to scan address. Is the API running?');
     } finally {

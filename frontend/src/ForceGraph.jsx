@@ -86,10 +86,11 @@ export default function ForceGraph({ graphData, onNodeClick }) {
     // ── Links ─────────────────────────────────────────────────────────────────
     const link = g.append('g').selectAll('line')
       .data(edges).join('line')
-      .attr('stroke', d => d.weight === 2 ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.08)')
-      .attr('stroke-width', d => d.weight === 2 ? 2 : 1)
-      .attr('stroke-dasharray', d => d.weight === 2 ? '0' : '4,4')
-      .attr('marker-end', 'url(#arrow)');
+      .attr('stroke', d => d.weight === 3 ? '#ef4444' : d.weight === 2 ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.08)')
+      .attr('stroke-width', d => d.weight === 3 ? 4 : d.weight === 2 ? 2 : 1)
+      .attr('stroke-dasharray', d => (d.weight === 2 || d.weight === 3) ? '0' : '4,4')
+      .attr('filter', d => d.weight === 3 ? 'url(#glow-red)' : null)
+      .attr('marker-end', d => d.weight === 3 ? null : 'url(#arrow)');
 
     // ── Node groups ───────────────────────────────────────────────────────────
     const node = g.append('g').selectAll('g')
