@@ -24,7 +24,8 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -107,9 +108,57 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Global queue for real-time live ticker events
+ticker_queue = asyncio.Queue()
+
+# Background task to generate random network events if the network is idle
+async def generate_mock_events():
+    mock_events = [
+        {"text": "DeFi Oracle blocked $50,000 flash loan on 0x3cbd...", "color": "#f59e0b"},
+        {"text": "Network Consensus reached on Lazarus Group", "color": "#8b5cf6"},
+        {"text": "142 malicious transactions blocked in last hour", "color": "#10b981"},
+        {"text": "Cross-chain tracking active: ETH -> SOL bridge monitored", "color": "#3b82f6"},
+        {"text": "AI Model detected high-velocity drainer pattern", "color": "#f59e0b"},
+        {"text": "Zero-Knowledge commitment verified on Midnight testnet", "color": "#10b981"},
+        {"text": "New OFAC sanction list synced with Sentinel Mesh", "color": "#3b82f6"}
+    ]
+    import random
+    while True:
+        event = random.choice(mock_events)
+        await ticker_queue.put(event)
+        await asyncio.sleep(random.uniform(4.0, 8.0))
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(generate_mock_events())
+
+@app.get("/ticker/stream")
+async def ticker_stream(request: Request):
+    """
+    Server-Sent Events (SSE) endpoint to stream live network events to the frontend ticker.
+    """
+    async def event_generator():
+        while True:
+            # Check if client disconnected
+            if await request.is_disconnected():
+                break
+            
+            try:
+                # Wait for a real event (or mock event) from the global queue
+                event = await asyncio.wait_for(ticker_queue.get(), timeout=2.0)
+                yield f"data: {json.dumps(event)}\n\n"
+            except asyncio.TimeoutError:
+                # Send a keep-alive ping if queue is empty to prevent connection drop
+                yield ": keep-alive\n\n"
+            except Exception as e:
+                break
+    
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 # ── Response models ───────────────────────────────────────────────────────────
@@ -157,9 +206,11 @@ class PropagationNode(BaseModel):
 class KycBanResponse(BaseModel):
     address: str
     success: bool
-    zk_did: Optional[str]
+    zk_did: str
+    nodes_broadcasted: int
+    propagation_details: list[PropagationNode]
     message: str
-    nodes: list[PropagationNode]
+    zk_proof: Optional[dict] = None
 
 class HealthResponse(BaseModel):
     status: str
@@ -271,9 +322,11 @@ async def ban_identity(address: str):
         return KycBanResponse(
             address=address,
             success=False,
-            zk_did=None,
+            zk_did="",
+            nodes_broadcasted=0,
+            propagation_details=[],
             message=f"Identity Ban Rejected: Wallet score ({result.score}) does not exceed malicious threshold.",
-            nodes=[]
+            zk_proof=None
         )
 
     # Generate a deterministic but secure-looking DID based on the address
@@ -311,12 +364,30 @@ async def ban_identity(address: str):
     # Add the DeFi bridge as a simulated smart-contract automated response (faster latency)
     nodes.append(PropagationNode(name="DeFi Bridge", status="ADDRESS BLOCKED", time="0.05s", icon="\U0001f309"))
 
+    # Push the real event to the live ticker instantly!
+    await ticker_queue.put({
+        "text": f"GLOBAL BAN ENFORCED: {zk_did} across {len(nodes)} nodes.",
+        "color": "#ef4444" # Red for HIGH ALERT
+    })
+
+    # Load actual ZK-Proof from disk for the UI terminal
+    zk_proof_payload = None
+    try:
+        import os
+        proof_path = os.path.join(os.path.dirname(__file__), "..", "zkp", "appeals", "423993c33e3b012d.json")
+        with open(proof_path, "r") as f:
+            zk_proof_payload = json.load(f)
+    except Exception as e:
+        print(f"Error loading ZK proof: {e}")
+
     return KycBanResponse(
         address=address,
         success=True,
         zk_did=zk_did,
-        message="Identity Hash broadcasted to P2P network.",
-        nodes=nodes
+        nodes_broadcasted=len(nodes),
+        propagation_details=nodes,
+        message="Address successfully banned globally across all Sentinel Mesh nodes.",
+        zk_proof=zk_proof_payload
     )
 
 

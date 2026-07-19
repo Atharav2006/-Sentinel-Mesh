@@ -8,6 +8,8 @@ export default function ZkKycPanel() {
   const [nodes, setNodes] = useState([]);
   const [errorMsg, setErrorMsg] = useState(null);
   const [zkDid, setZkDid] = useState('');
+  const [zkProof, setZkProof] = useState(null);
+  const [showProof, setShowProof] = useState(false);
 
   const submitBan = async () => {
     if (!target.trim()) return;
@@ -16,6 +18,8 @@ export default function ZkKycPanel() {
     setNodes([]);
     setErrorMsg(null);
     setZkDid('');
+    setZkProof(null);
+    setShowProof(false);
     
     try {
       // Small delay just to show the spinner briefly
@@ -29,7 +33,8 @@ export default function ZkKycPanel() {
       }
 
       setZkDid(response.zk_did);
-      setNodes(response.nodes);
+      setNodes(response.propagation_details || response.nodes);
+      setZkProof(response.zk_proof);
       setBanned(true);
 
     } catch (e) {
@@ -151,6 +156,56 @@ export default function ZkKycPanel() {
                   </div>
                 ))}
               </div>
+
+              {/* ZK Proof Terminal Toggle */}
+              {zkProof && (
+                <div style={{ marginTop: 20 }}>
+                  <button 
+                    onClick={() => setShowProof(!showProof)}
+                    style={{
+                      background: 'var(--bg-card)', border: '1px solid var(--border)',
+                      padding: '8px 16px', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)',
+                      fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                      transition: 'background var(--transition-fast)'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-surface)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card)'}
+                  >
+                    <span>{showProof ? '▼' : '▶'}</span> View Raw ZK-SNARK Proof
+                  </button>
+                  
+                  {showProof && (
+                    <div style={{ 
+                      marginTop: 12, background: '#0d1117', border: '1px solid #30363d',
+                      borderRadius: 'var(--radius-sm)', overflow: 'hidden',
+                      animation: 'slideDown 0.3s ease'
+                    }}>
+                      <div style={{ 
+                        background: '#161b22', borderBottom: '1px solid #30363d', 
+                        padding: '8px 12px', display: 'flex', gap: 6, alignItems: 'center' 
+                      }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ff5f56' }} />
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ffbd2e' }} />
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#27c93f' }} />
+                        <span style={{ marginLeft: 8, color: '#8b949e', fontSize: 11, fontFamily: 'var(--font-mono)' }}>zk_proof_payload.json</span>
+                      </div>
+                      <pre style={{ 
+                        margin: 0, padding: 16, overflowX: 'auto', maxHeight: 300, overflowY: 'auto',
+                        color: '#c9d1d9', fontSize: 11, fontFamily: 'var(--font-mono)', lineHeight: 1.5
+                      }}>
+                        <code dangerouslySetInnerHTML={{ 
+                          __html: JSON.stringify(zkProof, null, 2)
+                            .replace(/"pi_a":/g, '<span style="color: #79c0ff">"pi_a":</span>')
+                            .replace(/"pi_b":/g, '<span style="color: #79c0ff">"pi_b":</span>')
+                            .replace(/"pi_c":/g, '<span style="color: #79c0ff">"pi_c":</span>')
+                            .replace(/"publicSignals":/g, '<span style="color: #d2a8ff">"publicSignals":</span>')
+                            .replace(/"curve":/g, '<span style="color: #ff7b72">"curve":</span>')
+                        }} />
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ) : !errorMsg ? (
             <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
@@ -163,6 +218,10 @@ export default function ZkKycPanel() {
       <style>{`
         @keyframes slideIn { 
           from { opacity: 0; transform: translateY(8px); } 
+          to { opacity: 1; transform: translateY(0); } 
+        }
+        @keyframes slideDown { 
+          from { opacity: 0; transform: translateY(-10px); } 
           to { opacity: 1; transform: translateY(0); } 
         }
         @keyframes fadeIn {
