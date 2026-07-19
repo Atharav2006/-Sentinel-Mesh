@@ -23,6 +23,7 @@ import requests
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
+import random
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -427,6 +428,18 @@ async def get_staking_nodes():
     ]
     
     async def fetch_node(peer):
+        if os.environ.get("HOSTED") == "true":
+            uptime_hrs = 24.5  # Simulate high uptime for hosted version
+            return {
+                "name": peer["name"],
+                "type": peer["type"],
+                "staked": f"{peer['staked']} $NIGHT",
+                "slashed": "0",
+                "uptime": f"{min(99.99, 90 + (uptime_hrs * 10) + (peer['base_rep'] / 100)):.2f}%", 
+                "status": "Active Node",
+                "reputation": min(100, peer['base_rep'] + int(uptime_hrs * 2))
+            }
+            
         try:
             url = f"http://127.0.0.1:{peer['port']}/health"
             res = await asyncio.to_thread(requests.get, url, timeout=1.0)
@@ -647,6 +660,13 @@ async def ban_identity(address: str):
 
     async def notify_peer(peer):
         start_time = time.time()
+        
+        if os.environ.get("HOSTED") == "true":
+            # Simulate real network latency between 50ms and 200ms
+            simulated_latency = random.uniform(0.05, 0.2)
+            await asyncio.sleep(simulated_latency)
+            return PropagationNode(name=peer["name"], status="BANNED", time=f"{simulated_latency:.2f}s", icon=peer["icon"])
+            
         try:
             # We use asyncio.to_thread because requests is synchronous and we want to broadcast in parallel
             res = await asyncio.to_thread(requests.post, peer["url"], json={"zk_did": zk_did}, timeout=2.0)
