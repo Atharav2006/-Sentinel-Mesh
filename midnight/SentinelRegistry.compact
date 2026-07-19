@@ -1,12 +1,12 @@
 // Sentinel Mesh Registry - Midnight Native Smart Contract (Compact)
 // This contract compiles to a ZK circuit and a DApp interface.
 
-import { Contract, Ledger, LedgerMap, Bytes, Field, ZK, Circuit, hash } from '@midnight-ntwk/compact';
+import { Contract, Ledger, Map, Bytes, Field, ZK, Circuit, hash } from '@midnight-ntwk/compact';
 
 export contract SentinelRegistry {
     // Public state: mapping of addresses to total flag count
     // This lives on the Midnight public ledger
-    ledger flags: LedgerMap<Bytes<32>, Field>;
+    ledger flags: Map<Bytes<32>, Field>;
 
     // Constructor to initialize the contract
     export circuit init(): void {
