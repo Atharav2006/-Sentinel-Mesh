@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { submitAppeal, verifyAppeal } from './api';
+import { useState, useRef, useEffect } from 'react';
+import { submitAppeal, verifyAppeal, sendAppealChatMessage } from './api';
 
 const STATUS_CONFIG = {
   NONE:     { color: '#6b7280', bg: 'rgba(107,114,128,0.08)', label: 'No appeal filed' },
@@ -85,7 +85,7 @@ function WitnessBox({ witness, onClose }) {
 }
 
 export default function AppealPanel({ address, flagCount }) {
-  const [phase,    setPhase]    = useState('idle');  // idle | form | submitted | verify
+  const [phase,    setPhase]    = useState('idle');  // idle | form | chat | submitted | verify
   const [reason,   setReason]   = useState('');
   const [evidence, setEvidence] = useState('');
   const [loading,  setLoading]  = useState(false);
@@ -98,6 +98,36 @@ export default function AppealPanel({ address, flagCount }) {
   const [vReason,   setVReason]   = useState('');
   const [vSalt,     setVSalt]     = useState('');
   const [vResult,   setVResult]   = useState(null);
+
+  // Chat phase
+  const [chatMessages, setChatMessages] = useState([
+    { role: 'ai', text: 'You are appealing a high-risk flag on your cryptographic identity. State your defense.' }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    if (phase === 'chat') {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, phase]);
+
+  const handleSendChat = async () => {
+    if (!chatInput.trim()) return;
+    const userMsg = chatInput.trim();
+    setChatMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+    setChatInput('');
+    setLoading(true);
+
+    try {
+      const res = await sendAppealChatMessage(address, userMsg);
+      setChatMessages(prev => [...prev, { role: 'ai', text: res.reply, status: res.status }]);
+    } catch (e) {
+      setChatMessages(prev => [...prev, { role: 'ai', text: 'Connection to Federated AI lost. Try again.' }]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!reason.trim() || reason.length < 10) {
@@ -158,7 +188,7 @@ export default function AppealPanel({ address, flagCount }) {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            {['form', 'verify'].map(p => (
+            {['form', 'chat', 'verify'].map(p => (
               <button key={p} onClick={() => { setPhase(p); setError(''); }} style={{
                 padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
                 cursor: 'pointer', transition: 'all 0.15s',
@@ -166,7 +196,7 @@ export default function AppealPanel({ address, flagCount }) {
                 border: `1px solid ${phase === p ? 'rgba(139,92,246,0.4)' : 'rgba(255,255,255,0.08)'}`,
                 color: phase === p ? '#a78bfa' : '#6b7280',
               }}>
-                {p === 'form' ? 'File Appeal' : 'Verify Authorship'}
+                {p === 'form' ? 'File Appeal' : p === 'chat' ? 'AI Interrogation' : 'Verify Authorship'}
               </button>
             ))}
           </div>
@@ -278,6 +308,59 @@ export default function AppealPanel({ address, flagCount }) {
             </div>
           )}
 
+          {/* ── CHAT phase ── */}
+          {phase === 'chat' && (
+            <div style={{ display: 'flex', flexDirection: 'column', height: 350, background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {chatMessages.map((msg, i) => (
+                  <div key={i} style={{ 
+                    alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                    maxWidth: '80%', display: 'flex', flexDirection: 'column', gap: 4
+                  }}>
+                    <div style={{ fontSize: 10, color: '#6b7280', fontWeight: 600, marginLeft: 4, textTransform: 'uppercase' }}>
+                      {msg.role === 'ai' ? 'Federated AI Judge' : 'Appellant'}
+                    </div>
+                    <div style={{
+                      padding: '10px 14px', borderRadius: 12, fontSize: 13, lineHeight: 1.5,
+                      background: msg.role === 'user' ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.05)',
+                      border: `1px solid ${msg.role === 'user' ? 'rgba(139,92,246,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                      color: '#e5e7eb', borderBottomRightRadius: msg.role === 'user' ? 2 : 12, borderBottomLeftRadius: msg.role === 'ai' ? 2 : 12,
+                    }}>
+                      {msg.text}
+                      {msg.status === 'DENIED' && (
+                        <div style={{ marginTop: 8, color: '#ef4444', fontWeight: 700, fontSize: 11, background: 'rgba(239,68,68,0.1)', padding: '4px 8px', borderRadius: 4, display: 'inline-block' }}>
+                          APPEAL DENIED
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {loading && (
+                  <div style={{ alignSelf: 'flex-start', padding: '10px 14px', background: 'rgba(255,255,255,0.05)', borderRadius: 12, borderBottomLeftRadius: 2, display: 'flex', gap: 4 }}>
+                    <span className="dot-typing"></span>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+              <div style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.08)', background: '#030712' }}>
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={e => setChatInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSendChat()}
+                  placeholder="State your defense..."
+                  style={{ flex: 1, background: 'transparent', border: 'none', padding: '14px 16px', color: '#e5e7eb', fontSize: 13, outline: 'none' }}
+                />
+                <button onClick={handleSendChat} disabled={loading || !chatInput.trim()} style={{
+                  padding: '0 20px', background: 'rgba(139,92,246,0.2)', border: 'none', borderLeft: '1px solid rgba(255,255,255,0.08)',
+                  color: '#a78bfa', fontWeight: 600, cursor: (loading || !chatInput.trim()) ? 'not-allowed' : 'pointer', transition: 'all 0.2s'
+                }}>
+                  Send
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ── SUBMITTED phase ── */}
           {phase === 'submitted' && result && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -377,6 +460,18 @@ export default function AppealPanel({ address, flagCount }) {
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
         @keyframes spin   { to { transform: rotate(360deg); } }
+        .dot-typing {
+          width: 6px; height: 6px; border-radius: 50%; background-color: #a78bfa;
+          animation: dot-typing 1.5s infinite linear;
+          box-shadow: 10px 0 0 0 #a78bfa, 20px 0 0 0 #a78bfa;
+          margin-right: 20px;
+        }
+        @keyframes dot-typing {
+          0% { background-color: #a78bfa; box-shadow: 10px 0 0 0 rgba(167,139,250,0.2), 20px 0 0 0 rgba(167,139,250,0.2); }
+          33% { background-color: rgba(167,139,250,0.2); box-shadow: 10px 0 0 0 #a78bfa, 20px 0 0 0 rgba(167,139,250,0.2); }
+          66% { background-color: rgba(167,139,250,0.2); box-shadow: 10px 0 0 0 rgba(167,139,250,0.2), 20px 0 0 0 #a78bfa; }
+          100% { background-color: #a78bfa; box-shadow: 10px 0 0 0 rgba(167,139,250,0.2), 20px 0 0 0 rgba(167,139,250,0.2); }
+        }
       `}</style>
     </>
   );

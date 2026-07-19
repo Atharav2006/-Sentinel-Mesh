@@ -1,4 +1,4 @@
-const API = 'http://localhost:8000';
+export const API = 'http://localhost:8000';
 
 export async function scoreAddress(address) {
   const res = await fetch(`${API}/score/${address}`);
@@ -52,15 +52,25 @@ export async function getAppealStatus(address) {
   return res.json();
 }
 
-export async function verifyAppeal(appealId, reason, salt) {
+export const verifyAppeal = async (appeal_id, reason, salt) => {
   const res = await fetch(`${API}/appeal/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ appeal_id: appealId, reason, salt }),
+    body: JSON.stringify({ appeal_id, reason, salt }),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw new Error("Failed to verify appeal");
   return res.json();
-}
+};
+
+export const sendAppealChatMessage = async (address, message) => {
+  const res = await fetch(`${API}/appeal/chat/${address}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message }),
+  });
+  if (!res.ok) throw new Error("Failed to send chat message");
+  return res.json();
+};
 
 export async function banIdentity(address) {
   const res = await fetch(`${API}/kyc/ban/${address}`, { method: 'POST' });

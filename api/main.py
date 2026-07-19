@@ -695,6 +695,13 @@ class VerifyAppealRequest(BaseModel):
     reason: str
     salt: str
 
+class AppealChatRequest(BaseModel):
+    message: str
+
+class AppealChatResponse(BaseModel):
+    reply: str
+    status: str
+
 
 # ── Appeal routes ──────────────────────────────────────────────────────────────
 
@@ -771,3 +778,41 @@ def verify_appeal(body: VerifyAppealRequest):
 def list_all_appeals():
     """Admin view — all appeals across all addresses."""
     return get_all_appeals()
+
+@app.post("/appeal/chat/{address}", response_model=AppealChatResponse)
+async def appeal_chat(address: str, body: AppealChatRequest):
+    """
+    AI Court of Appeals Chatbot.
+    Simulates a Federated AI responding to user arguments based on on-chain heuristics.
+    """
+    msg = body.message.lower()
+    
+    # Simulate thinking delay
+    import asyncio
+    await asyncio.sleep(1.5)
+    
+    if "tornado" in msg or "mixer" in msg:
+        return AppealChatResponse(
+            reply="Analysis of on-chain heuristics confirms Tornado Cash usage. Privacy tools do not exempt you from AML compliance. The zero-knowledge proof of your transaction velocity exceeds the threshold. Appeal Denied.",
+            status="DENIED"
+        )
+    elif "hack" in msg or "stolen" in msg or "exploit" in msg:
+        return AppealChatResponse(
+            reply="Funds traced to the Lazarus Group exploit. The graph algorithms show a 94% probability of correlation. We cannot un-ban addresses linked to sanctioned entities. Appeal Denied.",
+            status="DENIED"
+        )
+    elif "innocent" in msg or "mistake" in msg:
+        return AppealChatResponse(
+            reply="The decentralized registry has flagged this address across 3 independent nodes. A deterministic ZK-proof was verified on the Midnight network. Mathematical proofs do not make mistakes.",
+            status="DENIED"
+        )
+    elif "kyc" in msg or "identity" in msg:
+        return AppealChatResponse(
+            reply="Your Identity Hash is permanently banned across the Sentinel Mesh. We do not know your real name, but this cryptographic identity will be blocked from all partner exchanges.",
+            status="DENIED"
+        )
+    else:
+        return AppealChatResponse(
+            reply="Your argument has been analyzed by the Sentinel Mesh Federated AI. Based on the immutable on-chain evidence, your risk score remains critical. Provide further verifiable cryptographic proof to proceed.",
+            status="PENDING"
+        )
