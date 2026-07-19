@@ -420,7 +420,10 @@ async def get_staking_nodes():
     peers_config = [
         {"name": "Exchange Alpha", "port": 8001, "type": "Centralized Exchange", "staked": "50,000"},
         {"name": "Wallet Beta", "port": 8002, "type": "Self-Custody Provider", "staked": "25,000"},
-        {"name": "Protocol Gamma", "port": 8003, "type": "DeFi Lending Protocol", "staked": "10,000"}
+        {"name": "Protocol Gamma", "port": 8003, "type": "DeFi Lending Protocol", "staked": "10,000"},
+        {"name": "Yield Farm Delta", "port": 8004, "type": "DeFi Yield Protocol", "staked": "42,000"},
+        {"name": "Bridge Node Epsilon", "port": 8005, "type": "Cross-Chain Bridge", "staked": "100,000"},
+        {"name": "Custodian Zeta", "port": 8006, "type": "Institutional Custody", "staked": "250,000"}
     ]
     
     async def fetch_node(peer):
@@ -636,7 +639,10 @@ async def ban_identity(address: str):
     PEERS = [
         {"url": "http://127.0.0.1:8001/p2p/receive-ban", "name": "Exchange Alpha", "icon": "\U0001f3e6"},
         {"url": "http://127.0.0.1:8002/p2p/receive-ban", "name": "Wallet Beta", "icon": "\U0001f4bc"},
-        {"url": "http://127.0.0.1:8003/p2p/receive-ban", "name": "Exchange Gamma", "icon": "\U0001f3db"},
+        {"url": "http://127.0.0.1:8003/p2p/receive-ban", "name": "Protocol Gamma", "icon": "\U0001f3db"},
+        {"url": "http://127.0.0.1:8004/p2p/receive-ban", "name": "Yield Farm Delta", "icon": "\U0001f33e"},
+        {"url": "http://127.0.0.1:8005/p2p/receive-ban", "name": "Bridge Node Epsilon", "icon": "\U0001f30d"},
+        {"url": "http://127.0.0.1:8006/p2p/receive-ban", "name": "Custodian Zeta", "icon": "\U0001f4b0"},
     ]
 
     async def notify_peer(peer):
