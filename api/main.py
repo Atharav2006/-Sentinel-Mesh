@@ -418,12 +418,12 @@ async def get_staking_nodes():
     
     # Configuration matches the start_peers.ps1 script
     peers_config = [
-        {"name": "Exchange Alpha", "port": 8001, "type": "Centralized Exchange", "staked": "50,000"},
-        {"name": "Wallet Beta", "port": 8002, "type": "Self-Custody Provider", "staked": "25,000"},
-        {"name": "Protocol Gamma", "port": 8003, "type": "DeFi Lending Protocol", "staked": "10,000"},
-        {"name": "Yield Farm Delta", "port": 8004, "type": "DeFi Yield Protocol", "staked": "42,000"},
-        {"name": "Bridge Node Epsilon", "port": 8005, "type": "Cross-Chain Bridge", "staked": "100,000"},
-        {"name": "Custodian Zeta", "port": 8006, "type": "Institutional Custody", "staked": "250,000"}
+        {"name": "Exchange Alpha", "port": 8001, "type": "Centralized Exchange", "staked": "50,000", "base_rep": 92},
+        {"name": "Wallet Beta", "port": 8002, "type": "Self-Custody Provider", "staked": "25,000", "base_rep": 85},
+        {"name": "Protocol Gamma", "port": 8003, "type": "DeFi Lending Protocol", "staked": "10,000", "base_rep": 72},
+        {"name": "Yield Farm Delta", "port": 8004, "type": "DeFi Yield Protocol", "staked": "42,000", "base_rep": 88},
+        {"name": "Bridge Node Epsilon", "port": 8005, "type": "Cross-Chain Bridge", "staked": "100,000", "base_rep": 96},
+        {"name": "Custodian Zeta", "port": 8006, "type": "Institutional Custody", "staked": "250,000", "base_rep": 99}
     ]
     
     async def fetch_node(peer):
@@ -438,9 +438,9 @@ async def get_staking_nodes():
                     "type": peer["type"],
                     "staked": f"{peer['staked']} $NIGHT",
                     "slashed": "0",
-                    "uptime": f"{min(99.99, 90 + (uptime_hrs * 10)):.2f}%", 
+                    "uptime": f"{min(99.99, 90 + (uptime_hrs * 10) + (peer['base_rep'] / 100)):.2f}%", 
                     "status": "Active Node",
-                    "reputation": min(100, 80 + int(uptime_hrs * 20))
+                    "reputation": min(100, peer['base_rep'] + int(uptime_hrs * 2))
                 }
         except Exception:
             pass

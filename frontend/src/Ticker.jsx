@@ -1,23 +1,41 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { API } from './api';
 
-const TICKER_MESSAGES = [
-  { text: "Exchange Alpha flagged 0x7f36... [HIGH RISK]", color: "#ef4444" },
-  { text: "DeFi Oracle blocked $50,000 flash loan on 0x3cbd...", color: "#f59e0b" },
-  { text: "Wallet Beta submitted counter-proof for 0xd8da...", color: "#10b981" },
-  { text: "Network Consensus reached on Lazarus Group", color: "#8b5cf6" },
-  { text: "Protocol Gamma flagged new phishing contract", color: "#ef4444" },
-  { text: "142 malicious transactions blocked in last hour", color: "#10b981" },
-  { text: "Cross-chain tracking active: ETH -> SOL bridge monitored", color: "#3b82f6" },
-  { text: "Court of Appeals slashed 500 $NIGHT from malicious node", color: "#ef4444" },
-  { text: "AI Model detected high-velocity drainer pattern", color: "#f59e0b" },
-  { text: "Tornado Cash interaction flagged by Node 4", color: "#8b5cf6" },
-  { text: "Zero-Knowledge commitment verified on Midnight testnet", color: "#10b981" },
-  { text: "Suspicious fan-out transfer intercepted", color: "#f59e0b" },
-  { text: "New OFAC sanction list synced with Sentinel Mesh", color: "#3b82f6" },
-  { text: "Staking pool rewards distributed to honest validators", color: "#10b981" }
+const INITIAL_MESSAGES = [
+  { text: "Waiting for live network events...", color: "#6366f1" },
+  { text: "System fully synchronized with Sentinel Mesh", color: "#10b981" },
+  { text: "Monitoring mempool for OFAC sanctioned addresses", color: "#3b82f6" },
+  { text: "Federated ML agent active on 12 nodes", color: "#8b5cf6" },
+  { text: "Zero-Knowledge SNARK verification online", color: "#10b981" },
+  { text: "No active threats detected in last 5 minutes", color: "#9ca3af" },
+  { text: "Connecting to centralized exchange relays...", color: "#6366f1" }
 ];
 
 export default function Ticker() {
+  const [messages, setMessages] = useState(INITIAL_MESSAGES);
+
+  useEffect(() => {
+    // Connect to the backend Server-Sent Events (SSE) stream
+    const eventSource = new EventSource(`${API}/ticker/stream`);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const newMsg = JSON.parse(event.data);
+        // Prepend new event and keep array length constant to prevent CSS jumps
+        setMessages(prev => {
+          const updated = [newMsg, ...prev];
+          return updated.slice(0, 15); // Keep the latest 15 events
+        });
+      } catch (err) {
+        console.error("Failed to parse SSE ticker event", err);
+      }
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, []);
+
   return (
     <div style={{
       width: '100%',
@@ -29,7 +47,7 @@ export default function Ticker() {
       overflow: 'hidden',
       whiteSpace: 'nowrap',
       fontSize: 12,
-      fontFamily: 'JetBrains Mono, monospace',
+      fontFamily: 'var(--font-mono)',
       color: '#9ca3af'
     }}>
       <div style={{
@@ -44,10 +62,14 @@ export default function Ticker() {
       </div>
       <div className="ticker-wrapper" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <div className="ticker-content">
-          {[...TICKER_MESSAGES, ...TICKER_MESSAGES].map((msg, i) => (
+          {[...messages, ...messages].map((msg, i) => (
             <span key={i} style={{ margin: '0 24px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: msg.color, boxShadow: `0 0 6px ${msg.color}` }} />
-              <span style={{ color: msg.color }}>{msg.text}</span>
+              <span style={{ 
+                width: 6, height: 6, borderRadius: '50%', 
+                background: msg.color, boxShadow: `0 0 6px ${msg.color}`,
+                transition: 'all 0.3s ease'
+              }} />
+              <span style={{ color: msg.color, transition: 'color 0.3s ease' }}>{msg.text}</span>
             </span>
           ))}
         </div>
@@ -55,7 +77,8 @@ export default function Ticker() {
       <style>{`
         .ticker-content {
           display: inline-block;
-          animation: ticker-scroll 60s linear infinite;
+          /* Faster animation to emphasize live streaming data */
+          animation: ticker-scroll 45s linear infinite;
         }
         .ticker-content:hover {
           animation-play-state: paused;
