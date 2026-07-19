@@ -119,6 +119,9 @@ ticker_queue = asyncio.Queue()
 # Global queue for real-time mempool transactions
 mempool_queue = asyncio.Queue()
 
+# Global queue for cross-chain bridge events
+crosschain_queue = asyncio.Queue()
+
 # Background task to generate random network events if the network is idle
 async def generate_mock_events():
     mock_events = [
@@ -202,10 +205,45 @@ async def fetch_live_mempool():
             
         await asyncio.sleep(12)  # Ethereum average block time
 
+async def fetch_live_crosschain():
+    """Simulates real-time cross-chain bridge monitoring."""
+    import random
+    while True:
+        amount = random.randint(500, 50000)
+        source = random.choice(["Ethereum", "Arbitrum", "Optimism"])
+        target = random.choice(["Solana", "Avalanche", "Polygon"])
+        bridge = random.choice(["Wormhole", "LayerZero", "Stargate"])
+        tx_hash = "0x" + "".join([random.choice("0123456789abcdef") for _ in range(64)])
+        
+        # 30% chance it is flagged as an anomaly
+        is_anomaly = random.random() < 0.3
+        
+        event = {
+            "id": tx_hash,
+            "source_chain": source,
+            "target_chain": target,
+            "bridge": bridge,
+            "amount": f"${amount:,}",
+            "status": "INTERCEPTED" if is_anomaly else "CLEARED",
+            "time": datetime.utcnow().isoformat().split('T')[1][:12],
+            "zk_did": f"ZK-DID: {tx_hash[2:18].upper()}" if is_anomaly else None
+        }
+        
+        await crosschain_queue.put(event)
+        
+        if is_anomaly:
+            await ticker_queue.put({
+                "text": f"CROSS-CHAIN INTERCEPT: {event['amount']} stolen funds blocked on {bridge} bridge.",
+                "color": "#ef4444"
+            })
+            
+        await asyncio.sleep(random.uniform(5.0, 10.0))
+
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(generate_mock_events())
     asyncio.create_task(fetch_live_mempool())
+    asyncio.create_task(fetch_live_crosschain())
 
 @app.get("/ticker/stream")
 async def ticker_stream(request: Request):
@@ -251,6 +289,27 @@ async def mempool_stream(request: Request):
                 yield ": keep-alive\n\n"
             except Exception as e:
                 print(f"Mempool stream error: {e}")
+                if await request.is_disconnected():
+                    break
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+@app.get("/crosschain/stream")
+async def crosschain_stream(request: Request):
+    """
+    Server-Sent Events (SSE) endpoint to stream cross-chain bridge anomalies to the UI.
+    """
+    async def event_generator():
+        while True:
+            if await request.is_disconnected():
+                break
+            
+            try:
+                event = await asyncio.wait_for(crosschain_queue.get(), timeout=15.0)
+                yield f"data: {json.dumps(event)}\n\n"
+            except asyncio.TimeoutError:
+                yield ": keep-alive\n\n"
+            except Exception as e:
+                print(f"Crosschain stream error: {e}")
                 if await request.is_disconnected():
                     break
     return StreamingResponse(event_generator(), media_type="text/event-stream")

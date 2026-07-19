@@ -11,6 +11,7 @@ import ExplorerSidebar from './ExplorerSidebar';
 import FederatedAIPanel from './FederatedAIPanel';
 import MempoolScanner from './MempoolScanner';
 import ZkKycPanel from './ZkKycPanel';
+import CrossChainRadar from './CrossChainRadar';
 import { DAppConnectorAPI } from './midnight-sdk';
 import './App.css';
 
@@ -307,6 +308,7 @@ export default function App() {
             <button className={`tab ${activeTab === 'network' ? 'active' : ''}`} onClick={() => setActiveTab('network')}>🕸️ Network Graph</button>
             <button className={`tab ${activeTab === 'ai' ? 'active' : ''}`} onClick={() => setActiveTab('ai')}>🧠 Federated AI</button>
             <button className={`tab ${activeTab === 'mempool' ? 'active' : ''}`} onClick={() => setActiveTab('mempool')}>⏳ Mempool Scanner</button>
+            <button className={`tab ${activeTab === 'crosschain' ? 'active' : ''}`} onClick={() => setActiveTab('crosschain')}>🌉 Cross-Chain Radar</button>
             <button className={`tab ${activeTab === 'kyc' ? 'active' : ''}`} onClick={() => setActiveTab('kyc')}>🆔 ZK-KYC</button>
             <button className={`tab ${activeTab === 'staking' ? 'active' : ''}`} onClick={() => setActiveTab('staking')}>💰 Cryptoeconomics</button>
             <button className={`tab ${activeTab === 'oracle' ? 'active' : ''}`} onClick={() => setActiveTab('oracle')}>⚡ DeFi Oracle</button>
@@ -515,6 +517,7 @@ export default function App() {
           {activeTab === 'oracle' && <DefiOraclePanel />}
           {activeTab === 'ai' && <FederatedAIPanel />}
           {activeTab === 'mempool' && <MempoolScanner />}
+          {activeTab === 'crosschain' && <CrossChainRadar />}
           {activeTab === 'kyc' && <ZkKycPanel />}
         
       </main>
