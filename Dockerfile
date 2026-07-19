@@ -29,6 +29,7 @@ WORKDIR /app
 # Set Environment Variables for Production
 ENV HOSTED=true
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app/api:/app/scorer:/app
 
 # Expose the port the app runs on
 EXPOSE 8000
