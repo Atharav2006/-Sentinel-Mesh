@@ -1,33 +1,34 @@
 import React, { useState, useEffect } from 'react';
 
-const genHash = () => '0x' + [...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
-const genAmount = () => (Math.random() * 10).toFixed(4) + ' ETH';
-
 export default function MempoolScanner() {
   const [txs, setTxs] = useState([]);
   const [blockedCount, setBlockedCount] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const isMalicious = Math.random() > 0.85;
-      
-      const newTx = {
-        id: Math.random().toString(),
-        hash: genHash(),
-        amount: genAmount(),
-        status: isMalicious ? 'BLOCKED' : 'PENDING',
-        time: new Date().toISOString().split('T')[1].slice(0, 12),
-        gas: Math.floor(Math.random() * 100 + 20) + ' Gwei'
-      };
+    // Connect to the honest live Etherscan feed from our backend
+    const eventSource = new EventSource('http://127.0.0.1:8000/mempool/stream');
 
-      if (isMalicious) {
-        setBlockedCount(c => c + 1);
+    eventSource.onmessage = (event) => {
+      try {
+        const newTx = JSON.parse(event.data);
+        
+        if (newTx.status === 'BLOCKED') {
+          setBlockedCount(c => c + 1);
+        }
+
+        setTxs(prev => {
+          // Keep only the latest 15 txs in the UI
+          const updated = [newTx, ...prev];
+          return updated.slice(0, 15);
+        });
+      } catch (err) {
+        console.error("Error parsing mempool tx:", err);
       }
+    };
 
-      setTxs(prev => [newTx, ...prev].slice(0, 15));
-    }, 400);
-
-    return () => clearInterval(interval);
+    return () => {
+      eventSource.close();
+    };
   }, []);
 
   return (
@@ -73,7 +74,20 @@ export default function MempoolScanner() {
                   </span>
                 </div>
                 <div style={{ flex: 1, overflow: 'hidden' }}>
-                  <div style={{ color: 'var(--text-secondary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{tx.hash}</div>
+                  <a 
+                    href={`https://etherscan.io/tx/${tx.hash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ 
+                      color: 'var(--text-secondary)', textOverflow: 'ellipsis', 
+                      overflow: 'hidden', whiteSpace: 'nowrap', textDecoration: 'none',
+                      display: 'block'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+                  >
+                    {tx.hash}
+                  </a>
                 </div>
                 <div style={{ width: 100, textAlign: 'right', color: 'var(--text-primary)', fontWeight: 500 }}>{tx.amount}</div>
                 <div style={{ width: 80, textAlign: 'right', color: 'var(--text-muted)' }}>{tx.gas}</div>

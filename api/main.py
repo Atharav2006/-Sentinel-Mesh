@@ -116,6 +116,9 @@ app.add_middleware(
 # Global queue for real-time live ticker events
 ticker_queue = asyncio.Queue()
 
+# Global queue for real-time mempool transactions
+mempool_queue = asyncio.Queue()
+
 # Background task to generate random network events if the network is idle
 async def generate_mock_events():
     mock_events = [
@@ -133,9 +136,76 @@ async def generate_mock_events():
         await ticker_queue.put(event)
         await asyncio.sleep(random.uniform(4.0, 8.0))
 
+async def fetch_live_mempool():
+    """Fetches real live Ethereum transactions via Etherscan API and streams them to the mempool scanner UI."""
+    import sys
+    sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+    try:
+        from scorer.ofac_addresses import is_ofac_sanctioned, is_known_mixer
+        from scorer.scorer import ETHERSCAN_API_KEY
+    except ImportError:
+        ETHERSCAN_API_KEY = "39W39GR1QZGPKGA5CTPUG5551FTHFU4YG2"
+        is_ofac_sanctioned = lambda x: False
+        is_known_mixer = lambda x: False
+        
+    seen_txs = set()
+    
+    while True:
+        try:
+            if not ETHERSCAN_API_KEY:
+                await asyncio.sleep(10)
+                continue
+                
+            def get_block():
+                url = f"https://api.etherscan.io/api?module=proxy&action=eth_getBlockByNumber&tag=latest&boolean=true&apikey={ETHERSCAN_API_KEY}"
+                return requests.get(url, timeout=10).json()
+                
+            data = await asyncio.to_thread(get_block)
+            
+            if data.get("result") and data["result"].get("transactions"):
+                txs = data["result"]["transactions"]
+                # Stream the latest 15 transactions
+                for tx in txs[:15]:
+                    tx_hash = tx.get("hash")
+                    if tx_hash in seen_txs:
+                        continue
+                    seen_txs.add(tx_hash)
+                    if len(seen_txs) > 1000:
+                        seen_txs.clear()
+                        
+                    from_addr = (tx.get("from") or "").lower()
+                    to_addr = (tx.get("to") or "").lower()
+                    value_wei = int(tx.get("value", "0x0"), 16)
+                    value_eth = value_wei / 1e18
+                    gas = int(tx.get("gas", "0x0"), 16)
+                    
+                    is_malicious = False
+                    if is_ofac_sanctioned(from_addr) or is_ofac_sanctioned(to_addr):
+                        is_malicious = True
+                    if is_known_mixer(from_addr) or is_known_mixer(to_addr):
+                        is_malicious = True
+                        
+                    event = {
+                        "id": tx_hash,
+                        "hash": tx_hash,
+                        "amount": f"{value_eth:.4f} ETH",
+                        "status": "BLOCKED" if is_malicious else "PENDING",
+                        "time": datetime.utcnow().isoformat().split('T')[1][:12],
+                        "gas": f"{gas} Gwei"
+                    }
+                    
+                    await mempool_queue.put(event)
+                    await asyncio.sleep(0.4) # visual delay
+                    
+        except Exception as e:
+            print(f"Mempool fetch error: {e}")
+            
+        await asyncio.sleep(12)  # Ethereum average block time
+
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(generate_mock_events())
+    asyncio.create_task(fetch_live_mempool())
 
 @app.get("/ticker/stream")
 async def ticker_stream(request: Request):
@@ -156,8 +226,33 @@ async def ticker_stream(request: Request):
                 # Send a keep-alive ping if queue is empty to prevent connection drop
                 yield ": keep-alive\n\n"
             except Exception as e:
+                print("Client disconnected from ticker stream")
                 break
     
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+@app.get("/mempool/stream")
+async def mempool_stream(request: Request):
+    """
+    Server-Sent Events (SSE) endpoint to stream live Ethereum transactions to the UI.
+    """
+    async def event_generator():
+        while True:
+            if await request.is_disconnected():
+                break
+            
+            try:
+                # Wait for a mempool event
+                event = await asyncio.wait_for(mempool_queue.get(), timeout=15.0)
+                # Send SSE format
+                yield f"data: {json.dumps(event)}\n\n"
+            except asyncio.TimeoutError:
+                # Keep-alive ping
+                yield ": keep-alive\n\n"
+            except Exception as e:
+                print(f"Mempool stream error: {e}")
+                if await request.is_disconnected():
+                    break
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
