@@ -122,6 +122,9 @@ mempool_queue = asyncio.Queue()
 # Global queue for cross-chain bridge events
 crosschain_queue = asyncio.Queue()
 
+# Global queue for white-hat bounties
+bounty_queue = asyncio.Queue()
+
 # Background task to generate random network events if the network is idle
 async def generate_mock_events():
     mock_events = [
@@ -160,7 +163,7 @@ async def fetch_live_mempool():
                 continue
                 
             def get_block():
-                url = f"https://api.etherscan.io/api?module=proxy&action=eth_getBlockByNumber&tag=latest&boolean=true&apikey={ETHERSCAN_API_KEY}"
+                url = f"https://api.etherscan.io/v2/api?chainid=1&module=proxy&action=eth_getBlockByNumber&tag=latest&boolean=true&apikey={ETHERSCAN_API_KEY}"
                 return requests.get(url, timeout=10).json()
                 
             data = await asyncio.to_thread(get_block)
@@ -198,6 +201,18 @@ async def fetch_live_mempool():
                     }
                     
                     await mempool_queue.put(event)
+                    
+                    if is_malicious:
+                        # Award a bounty dynamically
+                        researcher = "0x" + "".join([random.choice("0123456789abcdef") for _ in range(40)])
+                        await bounty_queue.put({
+                            "id": tx_hash,
+                            "researcher": f"{researcher[:6]}...{researcher[-4:]}",
+                            "payout": f"+{random.randint(100, 1500):,} $NIGHT",
+                            "reason": "Mempool Exploit Blocked",
+                            "time": "Just now"
+                        })
+                    
                     await asyncio.sleep(0.4) # visual delay
                     
         except Exception as e:
@@ -282,6 +297,16 @@ async def fetch_live_crosschain():
                             "color": "#ef4444"
                         })
                         
+                        # Award a bounty dynamically
+                        researcher = "0x" + "".join([random.choice("0123456789abcdef") for _ in range(40)])
+                        await bounty_queue.put({
+                            "id": tx_hash,
+                            "researcher": f"{researcher[:6]}...{researcher[-4:]}",
+                            "payout": f"+{random.randint(200, 2500):,} $NIGHT",
+                            "reason": f"Cross-Chain Intercept ({bridge_name})",
+                            "time": "Just now"
+                        })
+                        
                     await asyncio.sleep(1.0) # stagger visual delivery
                     
         except Exception as e:
@@ -364,6 +389,73 @@ async def crosschain_stream(request: Request):
                     break
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+@app.get("/staking/bounties")
+async def bounties_stream(request: Request):
+    """
+    Server-Sent Events (SSE) endpoint to stream dynamic white-hat bounties.
+    """
+    async def event_generator():
+        while True:
+            if await request.is_disconnected():
+                break
+            try:
+                event = await asyncio.wait_for(bounty_queue.get(), timeout=15.0)
+                yield f"data: {json.dumps(event)}\n\n"
+            except asyncio.TimeoutError:
+                yield ": keep-alive\n\n"
+            except Exception:
+                if await request.is_disconnected():
+                    break
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+@app.get("/staking/nodes")
+async def get_staking_nodes():
+    """
+    Pings the actual locally running P2P mock nodes (Alpha, Beta, Gamma) 
+    to retrieve their real uptime and status for the Cryptoeconomics panel.
+    """
+    nodes_info = []
+    
+    # Configuration matches the start_peers.ps1 script
+    peers_config = [
+        {"name": "Exchange Alpha", "port": 8001, "type": "Centralized Exchange", "staked": "50,000"},
+        {"name": "Wallet Beta", "port": 8002, "type": "Self-Custody Provider", "staked": "25,000"},
+        {"name": "Protocol Gamma", "port": 8003, "type": "DeFi Lending Protocol", "staked": "10,000"}
+    ]
+    
+    async def fetch_node(peer):
+        try:
+            url = f"http://127.0.0.1:{peer['port']}/health"
+            res = await asyncio.to_thread(requests.get, url, timeout=1.0)
+            if res.status_code == 200:
+                data = res.json()
+                uptime_hrs = data.get("uptime", 0) / 3600
+                return {
+                    "name": peer["name"],
+                    "type": peer["type"],
+                    "staked": f"{peer['staked']} $NIGHT",
+                    "slashed": "0",
+                    "uptime": f"{min(99.99, 90 + (uptime_hrs * 10)):.2f}%", 
+                    "status": "Active Node",
+                    "reputation": min(100, 80 + int(uptime_hrs * 20))
+                }
+        except Exception:
+            pass
+            
+        # If node is offline or crashes
+        return {
+            "name": peer["name"],
+            "type": peer["type"],
+            "staked": f"{peer['staked']} $NIGHT",
+            "slashed": "500 $NIGHT",
+            "uptime": "OFFLINE",
+            "status": "Warned",
+            "reputation": 45
+        }
+        
+    tasks = [fetch_node(p) for p in peers_config]
+    results = await asyncio.gather(*tasks)
+    return results
 
 # ── Response models ───────────────────────────────────────────────────────────
 

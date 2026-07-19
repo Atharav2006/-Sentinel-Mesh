@@ -78,3 +78,9 @@ export async function banIdentity(address) {
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
+
+export const getStakingNodes = async () => {
+  const res = await fetch(`${API}/staking/nodes`);
+  if (!res.ok) throw new Error("Failed to fetch staking nodes");
+  return res.json();
+};

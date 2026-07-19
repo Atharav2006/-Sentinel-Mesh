@@ -3,11 +3,25 @@ import asyncio
 import random
 import sys
 
+import time
+
 app = FastAPI()
+
+START_TIME = time.time()
 
 # The name of the exchange will be passed via command line args in the startup script
 # Defaults to "Unknown Node" if not provided
 NODE_NAME = sys.argv[1] if len(sys.argv) > 1 else "Unknown Node"
+
+@app.get("/health")
+async def health_check():
+    """Returns the real process uptime and node name."""
+    uptime_sec = time.time() - START_TIME
+    return {
+        "status": "ok",
+        "node": NODE_NAME,
+        "uptime": uptime_sec
+    }
 
 @app.post("/p2p/receive-ban")
 async def receive_ban(request: Request):

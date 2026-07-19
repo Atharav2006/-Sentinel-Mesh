@@ -1,12 +1,40 @@
-import React from 'react';
-
-const STAKERS = [
-  { name: "Exchange Alpha", type: "Centralized Exchange", staked: "50,000 $NIGHT", slashed: "0", uptime: "99.99%", status: "Active Node", reputation: 98 },
-  { name: "Wallet Beta", type: "Self-Custody Provider", staked: "25,000 $NIGHT", slashed: "0", uptime: "99.95%", status: "Active Node", reputation: 82 },
-  { name: "Protocol Gamma", type: "DeFi Lending Protocol", staked: "10,000 $NIGHT", slashed: "500 $NIGHT", uptime: "99.98%", status: "Warned", reputation: 45 },
-];
+import React, { useState, useEffect } from 'react';
+import { getStakingNodes } from './api';
 
 export default function StakingPanel() {
+  const [stakers, setStakers] = useState([]);
+  const [bounties, setBounties] = useState([]);
+
+  useEffect(() => {
+    // 1. Fetch real staking nodes
+    const fetchNodes = async () => {
+      try {
+        const nodes = await getStakingNodes();
+        setStakers(nodes);
+      } catch (e) {
+        console.error("Failed to fetch staking nodes", e);
+      }
+    };
+    fetchNodes();
+    const t = setInterval(fetchNodes, 5000);
+
+    // 2. Listen for live bounty payouts
+    const eventSource = new EventSource('http://127.0.0.1:8000/staking/bounties');
+    eventSource.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        setBounties(prev => {
+          const updated = [data, ...prev];
+          return updated.slice(0, 5); // keep last 5 bounties
+        });
+      } catch (err) {}
+    };
+
+    return () => {
+      clearInterval(t);
+      eventSource.close();
+    };
+  }, []);
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', color: 'var(--text-primary)' }}>
       <div style={{ marginBottom: 24 }}>
@@ -18,7 +46,7 @@ export default function StakingPanel() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16 }}>
-        {STAKERS.map(s => (
+        {stakers.map(s => (
           <div key={s.name} style={{
             background: 'var(--bg-card)', border: `1px solid ${s.status === 'Warned' ? 'rgba(245,158,11,0.3)' : 'var(--border)'}`,
             borderRadius: 'var(--radius-lg)', padding: 24, position: 'relative', overflow: 'hidden',
@@ -85,14 +113,16 @@ export default function StakingPanel() {
       <div style={{ marginTop: 32 }}>
         <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 16 }}>White-Hat Bounty Feed</h3>
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 16 }}>
-          {[
-            { id: '1', researcher: '0x94fA...3b21', payout: '+500 $NIGHT', reason: 'Zero-Day Drainer Identified', time: '2 mins ago' },
-            { id: '2', researcher: '0x22cB...8f0A', payout: '+1,200 $NIGHT', reason: 'Flash Loan Exploit Prevented', time: '14 mins ago' },
-            { id: '3', researcher: '0x71aE...9c99', payout: '+300 $NIGHT', reason: 'Phishing Contract Flagged', time: '1 hour ago' },
-          ].map((bounty, i) => (
+          {bounties.length === 0 && (
+            <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: 20 }}>
+              Monitoring AI threat engine for live white-hat bounties...
+            </div>
+          )}
+          {bounties.map((bounty, i) => (
             <div key={bounty.id} style={{ 
               display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-              padding: '12px 0', borderBottom: i < 2 ? '1px solid var(--border)' : 'none'
+              padding: '12px 0', borderBottom: i < bounties.length - 1 ? '1px solid var(--border)' : 'none',
+              animation: 'slideIn 0.3s ease-out forwards'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: 'var(--green-subtle)', color: 'var(--green)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>
