@@ -75,7 +75,16 @@ export default function CrossChainRadar() {
               
               <div style={{ width: 180, textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
                 <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{evt.amount}</div>
-                <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{evt.id.slice(0,16)}...</div>
+                <a 
+                  href={`https://etherscan.io/tx/${evt.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', textDecoration: 'none', transition: 'color 0.2s' }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                >
+                  {evt.id.slice(0,16)}...
+                </a>
               </div>
             </div>
 
