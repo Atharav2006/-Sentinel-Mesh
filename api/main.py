@@ -429,15 +429,15 @@ async def get_staking_nodes():
     
     async def fetch_node(peer):
         if os.environ.get("HOSTED") == "true":
-            uptime_hrs = 24.5  # Simulate high uptime for hosted version
+            uptime_hrs = random.uniform(2.5, 5.5)  # Simulate reasonable uptime for hosted version
             return {
                 "name": peer["name"],
                 "type": peer["type"],
                 "staked": f"{peer['staked']} $NIGHT",
                 "slashed": "0",
-                "uptime": f"{min(99.99, 90 + (uptime_hrs * 10) + (peer['base_rep'] / 100)):.2f}%", 
+                "uptime": f"{min(99.99, 90 + (uptime_hrs * 1.5) + (peer['base_rep'] / 100)):.2f}%", 
                 "status": "Active Node",
-                "reputation": min(100, peer['base_rep'] + int(uptime_hrs * 2))
+                "reputation": min(100, peer['base_rep'] + random.randint(0, 3))
             }
             
         try:
